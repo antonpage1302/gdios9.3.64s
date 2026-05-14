@@ -1,422 +1,331 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "w3.org">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <!-- Viewport locked to prevent accidental scaling and panning on multi-touch mobile screens -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>Geometry Dash JS Mobile Optimized</title>
-    <style>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Geometry Dash HTML 4 Edition</title>
+    <style type="text/css">
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            /* Prevents callout text menus during long presses on iOS */
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
         }
         body {
             background-color: #0b0e14;
             color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
             overflow: hidden;
-            /* Prevents rubber-band scrolling bounce effect on mobile Safari */
-            position: fixed;
             width: 100%;
             height: 100%;
         }
-        #game-container {
-            position: relative;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            border-radius: 4px;
-            overflow: hidden;
-            max-width: 100%;
-        }
-        canvas {
-            background: linear-gradient(to bottom, #001f3f, #0074D9);
-            display: block;
-            max-width: 100%;
-            height: auto;
-        }
-        #ui-overlay {
+        #center-wrapper {
             position: absolute;
-            top: 0;
+            top: 50%;
+            left: 50%;
+            width: 800px;
+            height: 400px;
+            margin-top: -200px;
+            margin-left: -400px;
+        }
+        #game-window {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background-color: #0074D9;
+            border: 2px solid #00ffcc;
+            overflow: hidden;
+        }
+        #floor {
+            position: absolute;
+            bottom: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
+            width: 800px;
+            height: 80px;
+            background-color: #001122;
+            border-top: 4px solid #00ffcc;
+            z-index: 10;
+        }
+        #player {
+            position: absolute;
+            width: 34px;
+            height: 34px;
+            background-color: #00ffcc;
+            border: 4px solid #001122;
+            left: 120px;
+            bottom: 80px;
+            z-index: 20;
+        }
+        #player-eye {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #ffffff;
+            top: 8px;
+            left: 8px;
+        }
+        .spike {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 34px solid #ff0055;
+            bottom: 80px;
+            z-index: 15;
+        }
+        .block {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #3b4252;
+            border: 2px solid #00ffcc;
+            bottom: 80px;
+            z-index: 14;
         }
         .screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.8);
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            transition: opacity 0.15s ease;
-            pointer-events: none;
+            width: 800px;
+            height: 400px;
+            background-color: #000000;
+            opacity: 0.85;
+            filter: alpha(opacity=85);
+            z-index: 100;
+            text-align: center;
         }
-        .screen.active {
-            opacity: 1;
-            pointer-events: auto;
+        .screen-content {
+            margin-top: 120px;
         }
         h1 {
             font-size: 36px;
             color: #00ffcc;
-            text-transform: uppercase;
-            letter-spacing: 4px;
             margin-bottom: 15px;
-            text-shadow: 0 0 10px #00ffcc;
         }
         p {
             font-size: 14px;
             color: #a0aec0;
             margin-bottom: 25px;
-            text-align: center;
-            padding: 0 10px;
         }
         .btn {
-            background: #00ffcc;
-            color: #000;
+            background-color: #00ffcc;
+            color: #000000;
             border: none;
-            padding: 14px 40px;
-            font-size: 18px;
+            padding: 12px 35px;
+            font-size: 16px;
             font-weight: bold;
-            text-transform: uppercase;
-            border-radius: 4px;
             cursor: pointer;
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
-            /* Avoids gray highlight selection tint overlay on iOS click interactions */
-            -webkit-tap-highlight-color: transparent;
         }
         #score-display {
             position: absolute;
             top: 15px;
+            left: 0;
+            width: 800px;
+            text-align: center;
             font-size: 20px;
             font-weight: bold;
-            color: #fff;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            letter-spacing: 1px;
+            color: #ffffff;
+            z-index: 50;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="gameCanvas" width="800" height="400"></canvas>
-        
-        <div id="ui-overlay">
-            <div id="score-display">ATTEMPT 1 — 0%</div>
-            
-            <!-- Menu Screen -->
-            <div id="menu-screen" class="screen active">
-                <h1>Geometry Dash</h1>
-                <p>Tap anywhere on screen to Jump</p>
-                <button class="btn" id="start-btn">Play</button>
-            </div>
+<div id="center-wrapper">
+    <div id="game-window">
+        <div id="score-display">ПОПЫТКА 1 — 0%</div>
+        <div id="player"><div id="player-eye"></div></div>
+        <div id="floor"></div>
+        <div id="scroller-anchor"></div>
 
-            <!-- Game Over Screen -->
-            <div id="gameover-screen" class="screen">
-                <h1 style="color: #ff0055; text-shadow: 0 0 10px #ff0055;">Crash!</h1>
-                <p id="final-progress">Progress: 0%</p>
-                <button class="btn" id="retry-btn" style="background: #ff0055; box-shadow: 0 0 15px rgba(255,0,85,0.4);">Retry</button>
+        <!-- Главное меню -->
+        <div id="menu-screen" class="screen">
+            <div class="screen-content">
+                <h1>GEOMETRY DASH</h1>
+                <p>Нажмите ПРОБЕЛ, СТРЕЛКУ ВВЕРХ или КЛИКНИТЕ для прыжка</p>
+                <input type="button" class="btn" value="ИГРАТЬ" onclick="startGame()">
+            </div>
+        </div>
+
+        <!-- Экран Проигрыша -->
+        <div id="gameover-screen" class="screen" style="display: none;">
+            <div class="screen-content">
+                <h1 style="color: #ff0055;">КРЭШ!</h1>
+                <p id="final-progress">Прогресс: 0%</p>
+                <input type="button" class="btn" value="ПОВТОРИТЬ" onclick="startGame()" style="background-color: #ff0055;">
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+<script type="text/javascript">
+    var gameWindow = document.getElementById('game-window');
+    var playerElem = document.getElementById('player');
+    var anchor = document.getElementById('scroller-anchor');
+    var scoreDisplay = document.getElementById('score-display');
+    var menuScreen = document.getElementById('menu-screen');
+    var gameoverScreen = document.getElementById('gameover-screen');
+    var finalProgress = document.getElementById('final-progress');
 
-        // UI Screens
-        const menuScreen = document.getElementById('menu-screen');
-        const gameoverScreen = document.getElementById('gameover-screen');
-        const scoreDisplay = document.getElementById('score-display');
-        const startBtn = document.getElementById('start-btn');
-        const retryBtn = document.getElementById('retry-btn');
-        const finalProgress = document.getElementById('final-progress');
+    // Настройки физики
+    var GRAVITY = 1.2;
+    var JUMP_FORCE = -15;
+    var BASE_SPEED = 6;
+    var FLOOR_Y = 0; // Относительно низа (bottom: 80px)
+    var LEVEL_LENGTH = 12000;
 
-        // Game Constants optimized for mobile performance loop
-        const GRAVITY = 1.4;
-        const JUMP_FORCE = -16;
-        const BASE_SPEED = 7;
-        const FLOOR_Y = 320;
-        const LEVEL_LENGTH = 15000;
+    var gameState = 'MENU';
+    var distanceTraveled = 0;
+    var attemptCount = 1;
 
-        // States
-        let gameState = 'MENU';
-        let distanceTraveled = 0;
-        let attemptCount = 1;
+    var playerY = 0;
+    var playerVy = 0;
+    var isGrounded = true;
+    var playerSize = 34;
+    var playerX = 120;
 
-        let player = {
-            x: 120,
-            y: FLOOR_Y - 34,
-            size: 34,
-            vy: 0,
-            isGrounded: false,
-            rotation: 0,
-            targetRotation: 0
-        };
+    var obstacles = [];
+    var activeElements = [];
 
-        let obstacles = [];
-        let particles = [];
-        let isJumpPressed = false;
-
-        function triggerJump() {
-            if (gameState === 'PLAYING' && player.isGrounded) {
-                player.vy = JUMP_FORCE;
-                player.isGrounded = false;
-                player.targetRotation += Math.PI / 2;
-            }
+    function triggerJump() {
+        if (gameState === 'PLAYING' && isGrounded) {
+            playerVy = JUMP_FORCE;
+            isGrounded = false;
         }
+    }
 
-        // Hardware Button Listener Configurations
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') {
-                e.preventDefault();
-                if (!isJumpPressed) {
-                    isJumpPressed = true;
-                    triggerJump();
-                }
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') {
-                isJumpPressed = false;
-            }
-        });
-
-        // Instant-response touch bindings bypasses mobile Safari 300ms delays completely
-        canvas.addEventListener('touchstart', (e) => { 
-            e.preventDefault(); 
-            triggerJump(); 
-        }, { passive: false });
-
-        canvas.addEventListener('mousedown', (e) => {
+    // Обработка ввода (HTML4 совместимые события)
+    document.onkeydown = function(e) {
+        var event = e || window.event;
+        if (event.keyCode === 32 || event.keyCode === 38) {
             triggerJump();
-        });
-
-        startBtn.addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
-        retryBtn.addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
-        
-        // Touch versions for UI buttons to maintain instant responsiveness on mobile screens
-        startBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); }, { passive: false });
-        retryBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); }, { passive: false });
-
-        function generateLevel() {
-            obstacles = [];
-            let nextSpawnPos = 600;
-            
-            while (nextSpawnPos < LEVEL_LENGTH) {
-                let typeRand = Math.random();
-                if (typeRand < 0.4) {
-                    obstacles.push({ x: nextSpawnPos, type: 'spike', width: 30, height: 34 });
-                    nextSpawnPos += 300 + Math.random() * 250;
-                } else if (typeRand < 0.7) {
-                    obstacles.push({ x: nextSpawnPos, type: 'spike', width: 30, height: 34 });
-                    obstacles.push({ x: nextSpawnPos + 28, type: 'spike', width: 30, height: 34 });
-                    nextSpawnPos += 400 + Math.random() * 250;
-                } else {
-                    obstacles.push({ x: nextSpawnPos, type: 'block', width: 40, height: 40 });
-                    obstacles.push({ x: nextSpawnPos + 40, type: 'spike', width: 30, height: 34 });
-                    nextSpawnPos += 450 + Math.random() * 300;
-                }
-            }
-        }
-
-        // Particle pool count lowered to 12 items for stable performance on legacy rendering engines
-        function createDeathExplosion(x, y) {
-            particles = [];
-            for (let i = 0; i < 12; i++) {
-                particles.push({
-                    x: x + player.size/2,
-                    y: y + player.size/2,
-                    vx: (Math.random() - 0.5) * 10,
-                    vy: (Math.random() - 0.5) * 10,
-                    size: Math.random() * 4 + 3,
-                    color: '#ff0055',
-                    alpha: 1
-                });
-            }
-        }
-
-        function startGame() {
-            gameState = 'PLAYING';
-            distanceTraveled = 0;
-            player.y = FLOOR_Y - player.size;
-            player.vy = 0;
-            player.rotation = 0;
-            player.targetRotation = 0;
-            player.isGrounded = true;
-            generateLevel();
-            particles = [];
-            
-            menuScreen.classList.remove('active');
-            gameoverScreen.classList.remove('active');
-            scoreDisplay.textContent = `ATTEMPT ${attemptCount} — 0%`;
-        }
-
-        function handleGameOver() {
-            gameState = 'GAMEOVER';
-            createDeathExplosion(player.x, player.y);
-            let percent = Math.min(Math.floor((distanceTraveled / LEVEL_LENGTH) * 100), 100);
-            finalProgress.textContent = `Progress: ${percent}%`;
-            gameoverScreen.classList.add('active');
-            attemptCount++;
-        }
-
-        function checkSpikeCollision(px, py, ps, sx, sy, sw, sh) {
-            if (px + ps < sx || px > sx + sw || py + ps < sy || py > sy + sh) return false;
-            if (py + ps >= sy + sh * 0.4) {
-                if (px + ps * 0.8 > sx && px + ps * 0.2 < sx + sw) return true;
-            }
             return false;
         }
+    };
 
-        function update() {
-            if (gameState === 'PLAYING') {
-                distanceTraveled += BASE_SPEED;
-                if (distanceTraveled >= LEVEL_LENGTH) distanceTraveled = 0;
+    gameWindow.onclick = function() {
+        triggerJump();
+    };
 
-                player.vy += GRAVITY;
-                player.y += player.vy;
+    function generateLevel() {
+        obstacles = [];
+        var nextSpawnPos = 600;
+        
+        while (nextSpawnPos < LEVEL_LENGTH) {
+            var rand = Math.random();
+            if (rand < 0.5) {
+                obstacles.push({ x: nextSpawnPos, type: 'spike', width: 30, height: 34 });
+                nextSpawnPos += 350 + Math.random() * 200;
+            } else {
+                obstacles.push({ x: nextSpawnPos, type: 'block', width: 40, height: 40 });
+                nextSpawnPos += 400 + Math.random() * 250;
+            }
+        }
+    }
 
-                if (player.y + player.size >= FLOOR_Y) {
-                    player.y = FLOOR_Y - player.size;
-                    player.vy = 0;
-                    player.isGrounded = true;
-                    
-                    let remainder = player.rotation % (Math.PI / 2);
-                    if (remainder !== 0) {
-                        player.rotation += (Math.PI / 2 - remainder) * 0.3; 
-                    }
-                    player.targetRotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+    function clearDOMObstacles() {
+        for (var i = 0; i < activeElements.length; i++) {
+            gameWindow.removeChild(activeElements[i].dom);
+        }
+        activeElements = [];
+    }
+
+    function syncDOMObstacles() {
+        clearDOMObstacles();
+        for (var i = 0; i < obstacles.length; i++) {
+            var obs = obstacles[i];
+            var div = document.createElement('div');
+            if (obs.type === 'spike') {
+                div.className = 'spike';
+            } else {
+                div.className = 'block';
+            }
+            gameWindow.appendChild(div);
+            activeElements.push({ data: obs, dom: div });
+        }
+    }
+
+    function startGame() {
+        gameState = 'PLAYING';
+        distanceTraveled = 0;
+        playerY = 0;
+        playerVy = 0;
+        isGrounded = true;
+
+        generateLevel();
+        syncDOMObstacles();
+
+        menuScreen.style.display = 'none';
+        gameoverScreen.style.display = 'none';
+        scoreDisplay.innerHTML = 'ПОПЫТКА ' + attemptCount + ' — 0%';
+    }
+
+    function handleGameOver() {
+        gameState = 'GAMEOVER';
+        var percent = Math.min(Math.floor((distanceTraveled / LEVEL_LENGTH) * 100), 100);
+        finalProgress.innerHTML = 'Прогресс: ' + percent + '%';
+        gameoverScreen.style.display = 'block';
+        attemptCount++;
+    }
+
+    // Основной игровой цикл на базе setInterval (для старых движков)
+    setInterval(function() {
+        if (gameState !== 'PLAYING') return;
+
+        distanceTraveled += BASE_SPEED;
+        if (distanceTraveled >= LEVEL_LENGTH) {
+            distanceTraveled = 0;
+        }
+
+        // Физика гравитации
+        playerVy += GRAVITY;
+        playerY -= playerVy;
+
+        if (playerY <= FLOOR_Y) {
+            playerY = FLOOR_Y;
+            playerVy = 0;
+            isGrounded = true;
+        }
+
+        // Рендеринг игрока через стили DOM
+        playerElem.style.bottom = (80 + playerY) + 'px';
+
+        // Движение и коллизии препятствий
+        for (var i = 0; i < activeElements.length; i++) {
+            var item = activeElements[i];
+            var localX = item.data.x - distanceTraveled + playerX;
+
+            // Позиционирование элементов на экране
+            item.dom.style.left = localX + 'px';
+
+            // Проверка столкновений (AABB)
+            var pLeft = playerX;
+            var pRight = playerX + playerSize;
+            var pBottom = playerY;
+            var pTop = playerY + playerSize;
+
+            var oLeft = localX;
+            var oRight = localX + item.data.width;
+            var oBottom = 0;
+            var oTop = item.data.height;
+
+            if (pRight > oLeft && pLeft < oRight && pTop > oBottom && pBottom < oTop) {
+                // Обработка приземления на блок сверху
+                if (item.data.type === 'block' && (pBottom - playerVy >= oTop - 8)) {
+                    playerY = oTop;
+                    playerVy = 0;
+                    isGrounded = true;
                 } else {
-                    player.rotation += 0.09;
+                    handleGameOver();
                 }
-
-                obstacles.forEach(obs => {
-                    let localX = obs.x - distanceTraveled + player.x;
-                    if (obs.type === 'spike') {
-                        if (checkSpikeCollision(player.x, player.y, player.size, localX, FLOOR_Y - obs.height, obs.width, obs.height)) {
-                            handleGameOver();
-                        }
-                    } else if (obs.type === 'block') {
-                        let bx = localX;
-                        let by = FLOOR_Y - obs.height;
-                        if (player.x + player.size > bx && player.x < bx + obs.width) {
-                            if (player.y + player.size >= by && player.y + player.size - player.vy <= by + 12) {
-                                player.y = by - player.size;
-                                player.vy = 0;
-                                player.isGrounded = true;
-                            } else if (player.x + player.size - BASE_SPEED <= bx && player.y + player.size > by + 4) {
-                                handleGameOver();
-                            }
-                        }
-                    }
-                });
-
-                let percent = Math.min(Math.floor((distanceTraveled / LEVEL_LENGTH) * 100), 100);
-                scoreDisplay.textContent = `ATTEMPT ${attemptCount} — ${percent}%`;
-            }
-
-            for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.alpha -= 0.03;
-                if (p.alpha <= 0) particles.splice(i, 1);
             }
         }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Обновление счетчика
+        var percent = Math.min(Math.floor((distanceTraveled / LEVEL_LENGTH) * 100), 100);
+        scoreDisplay.innerHTML = 'ПОПЫТКА ' + attemptCount + ' — ' + percent + '%';
 
-            // Light-weight horizontal grid lines background loop
-            let bgOffset = (distanceTraveled * 0.2) % 80;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-            ctx.lineWidth = 1;
-            for (let x = -bgOffset; x < canvas.width; x += 80) {
-                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, FLOOR_Y); ctx.stroke();
-            }
+    }, 1000 / 60); // Лок на 60 FPS через таймер
+</script>
 
-            // Floor
-            ctx.fillStyle = '#001122';
-            ctx.fillRect(0, FLOOR_Y, canvas.width, canvas.height - FLOOR_Y);
-            ctx.fillStyle = '#00ffcc';
-            ctx.fillRect(0, FLOOR_Y, canvas.width, 4);
-
-            // Obstacles Render loop
-            obstacles.forEach(obs => {
-                let localX = obs.x - distanceTraveled + player.x;
-                if (localX > -100 && localX < canvas.width + 100) {
-                    if (obs.type === 'spike') {
-                        ctx.fillStyle = '#ff0055';
-                        ctx.strokeStyle = '#ffffff';
-                        ctx.lineWidth = 1.5;
-                        ctx.beginPath();
-                        ctx.moveTo(localX, FLOOR_Y);
-                        ctx.lineTo(localX + obs.width / 2, FLOOR_Y - obs.height);
-                        ctx.lineTo(localX + obs.width, FLOOR_Y);
-                        ctx.closePath();
-                        ctx.fill();
-                        ctx.stroke();
-                    } else if (obs.type === 'block') {
-                        ctx.fillStyle = '#3b4252';
-                        ctx.strokeStyle = '#00ffcc';
-                        ctx.lineWidth = 2;
-                        ctx.fillRect(localX, FLOOR_Y - obs.height, obs.width, obs.height);
-                        ctx.strokeRect(localX, FLOOR_Y - obs.height, obs.width, obs.height);
-                    }
-                }
-            });
-
-            // Player Icon Graphic
-            if (gameState === 'PLAYING' || gameState === 'MENU') {
-                ctx.save();
-                ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
-                ctx.rotate(player.rotation);
-                ctx.fillStyle = '#00ffcc';
-                ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
-                ctx.fillStyle = '#001122';
-                ctx.fillRect(-player.size / 3, -player.size / 3, player.size * 0.66, player.size * 0.66);
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(-player.size / 5, -player.size / 5, player.size * 0.4, player.size * 0.4);
-                ctx.restore();
-            }
-
-            // Exploding Particle System
-            particles.forEach(p => {
-                ctx.save();
-                ctx.globalAlpha = p.alpha;
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, p.size, p.size);
-                ctx.restore();
-            });
-        }
-
-        function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
-        }
-
-        loop();
-    </script>
 </body>
 </html>
